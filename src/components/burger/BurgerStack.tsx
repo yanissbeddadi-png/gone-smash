@@ -12,9 +12,12 @@ interface Props {
   shadow?: boolean;
   className?: string;
   label?: string;
+  /** Rend chaque couche (hors pains) cliquable — ex. pour la retirer */
+  onLayerClick?: (layer: Layer) => void;
+  layerLabel?: (layer: Layer) => string;
 }
 
-export function BurgerStack({ layers, mode = 'none', seed = 1, shadow = true, className = '', label }: Props) {
+export function BurgerStack({ layers, mode = 'none', seed = 1, shadow = true, className = '', label, onLayerClick, layerLabel }: Props) {
   const items = layers.map((layer, i) => {
     const m = LAYER_META[layer.kind];
     const style = {
@@ -24,21 +27,28 @@ export function BurgerStack({ layers, mode = 'none', seed = 1, shadow = true, cl
       ['--i' as string]: i,
     };
     const inner = (
-      <div className="burger-spread h-full w-full">
+      <div className="burger-spread pointer-events-none h-full w-full">
         <BurgerLayer layer={layer} seed={seed} />
       </div>
     );
-    if (mode === 'none') return <div key={layer.id} className="relative w-full" style={style}>{inner}</div>;
+    const clickable = !!onLayerClick && layer.kind !== 'bunTop' && layer.kind !== 'bunBottom';
+    const clickProps = clickable
+      ? {
+          role: 'button',
+          tabIndex: 0,
+          'aria-label': layerLabel?.(layer) ?? 'Retirer cette couche',
+          onClick: () => onLayerClick!(layer),
+          onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onLayerClick!(layer); } },
+          className: 'relative block w-full cursor-pointer outline-none transition-[filter] hover:brightness-110 focus-visible:brightness-110 focus-visible:drop-shadow-[0_0_0_#F4A340]',
+        }
+      : { className: 'relative w-full' };
+
+    if (mode === 'none') return <div key={layer.id} style={style} {...clickProps}>{inner}</div>;
     if (mode === 'stagger')
       return (
-        <motion.div
-          key={layer.id}
-          className="relative w-full"
-          style={style}
-          initial={{ opacity: 0, y: -60 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 + i * 0.09, type: 'spring', stiffness: 260, damping: 18 }}
-        >
+        <motion.div key={layer.id} style={style} {...clickProps}
+          initial={{ opacity: 0, y: -60 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 + i * 0.09, type: 'spring', stiffness: 260, damping: 18 }}>
           {inner}
         </motion.div>
       );
@@ -46,12 +56,12 @@ export function BurgerStack({ layers, mode = 'none', seed = 1, shadow = true, cl
       <motion.div
         key={layer.id}
         layout="position"
-        className="relative w-full"
         style={style}
-        initial={{ opacity: 0, y: -90, scale: 1.04 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, x: 60, rotate: 6, transition: { duration: 0.22 } }}
-        transition={{ type: 'spring', stiffness: 380, damping: 24, mass: 0.8 }}
+        {...clickProps}
+        initial={{ opacity: 0, y: -260, rotate: (i % 2 ? 1 : -1) * 6, scale: 1.08 }}
+        animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
+        exit={{ opacity: 0, x: i % 2 ? 140 : -140, rotate: i % 2 ? 18 : -18, transition: { duration: 0.28 } }}
+        transition={{ type: 'spring', stiffness: 420, damping: 22, mass: 0.9 }}
       >
         {inner}
       </motion.div>

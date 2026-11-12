@@ -41,8 +41,4 @@ export const brand = {
   },
   /** Délai minimum de préparation avant le premier créneau (minutes) */
   prepMinutes: 20,
-  /** Offre de démonstration : cadeau dès un montant de panier */
-  promo: { threshold: 25, gift: 'Cookie praline rose', isDemo: true },
-  /** Fidélité de démonstration : 1 tampon par burger */
-  loyalty: { stampsForReward: 10 },
 } as const;

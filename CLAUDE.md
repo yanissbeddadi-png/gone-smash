@@ -1,21 +1,11 @@
 # GONE SMASH — notes projet
 
-- Stack : Vite 5 + React 18 + TS strict + Tailwind 3 + framer-motion 11 + lucide-react. Polices auto-hébergées (@fontsource : Anton display, Inter variable). Pas de router : SPA one-page, tunnel de commande sur le hash `#/commande` (App.tsx).
-- Données centralisées dans `src/data/*` (brand, products, ingredients, combos, lyon, nav). Tout ce qui est commercial est DÉMO : ne jamais présenter comme réel.
-- Visuels = illustrations SVG générées (`components/burger/BurgerLayer.tsx`, une couche par ingrédient, formes organiques seedées via `utils/shapes.ts`). `BurgerStack` empile les couches (modes none/stagger/live) et sert partout : hero, carte, configurateur, panier, savoir-faire. `LAYER_META` règle hauteur/chevauchement de chaque couche.
-- `ProductVisual` affiche `product.photo` si défini, sinon le SVG.
-- État : `useCart` (Context + reducer, localStorage `gonesmash.cart.v1`), `useBurgerBuilder` (localStorage `gonesmash.builder.v1`), `useProductModal`. `useFocusTrap` pour modal/tiroir/menu mobile (Échap, focus restauré, scroll bloqué).
-- Commande : `utils/order.ts` → interface `OrderProvider`, implémentation `demoOrderProvider` (n'envoie rien). Brancher le vrai système ici.
-- Navigation d'étapes du tunnel : cibles absolues (`setStep(step+1)`), pas fonctionnelles, pour qu'un double-clic pendant la transition ne saute pas une étape.
-- Grilles avec enfants `min-w-max` : utiliser `grid-cols-[minmax(0,1fr)]` sinon débordement mobile.
-- Titres XXL masqués (SplitTitle) : garder `pt/-mt 0.14em` sinon les accents (É, À) sont rognés.
-- `html { position: relative }` requis par useScroll (warning framer sinon).
-- Tests : `e2e.test.cjs` (34, V1) + `e2e.v2.test.cjs` (39, V2 : partage, story, créations, upsell, promo, fidélité, créneaux via `page.clock`, animations) — `npm run test:e2e` sur la preview. Lighthouse mobile : Perf ~97, A11y/BP/SEO 100.
-- Sections sous le hero montées progressivement (`useProgressiveMount`, App.tsx) : placeholders portant les ids d'ancre ; lien profond ou hashchange → tout monter (`mount.all`). C'est ce qui garde le TBT bas.
-- `SplitTitle` : le `whileInView` doit rester sur le titre, jamais sur la ligne masquée (rognée par overflow-hidden → invisible pour l'IntersectionObserver).
-- Partage : `?burger=<pain.viande.fromage.garnitures.sauce>~Nom` (encode/decode dans `data/ingredients.ts`), lu une seule fois au chargement du module (pas dans un initialiseur useState : rejoué en StrictMode).
-- Story PNG : `utils/storyImage.tsx`, chargé à la demande (react-dom/server en chunk séparé).
-- Horaires : `brand.schedule` structuré, évalué à l'heure de Lyon (`utils/schedule.ts`) ; `hoursDisplay` = texte affiché (à garder cohérent).
-- Panier : fabrique d'articles `utils/cartItems.ts` (clés stables) ; kinds product/custom/extra/reward ; cadeau promo et fidélité = DÉMO.
-- UI transverse : `useUI` (notify, flyToCart, sons WebAudio off par défaut). Intro desktop uniquement, 1×/session, ignorée sur lien profond ; curseur = anneau (curseur natif conservé).
-- Déploiement : GitHub Pages via workflow (branche gh-pages), base Vite `/gone-smash/` (env BASE_PATH pour changer).
+- V3 = page unique de commande : burger au centre, 1 clic aliment = 1 couche animée. La V2 (site complet) vit sur la branche `v2-complet` ; ne pas la remettre sur `main` sans demande.
+- Stack : Vite 5 + React 18 + TS strict + Tailwind 3 + framer-motion 11 + lucide-react. Polices @fontsource (Anton, Inter). Base Vite `/gone-smash/` (env BASE_PATH).
+- Tout ce qui est commercial est DÉMO (prix, horaires, adresse, commande) : ne jamais présenter comme réel.
+- Fichiers clés : `App.tsx` (page), `data/simple.ts` (aliments, prix, limites 3/aliment et 12 couches), `hooks/useStack.ts` (pile ordonnée, localStorage `gonesmash.simple.v1`), `components/OrderSheet.tsx` (formulaire + confirmation simulée), `utils/order.ts` (`OrderProvider`, brancher le vrai système ici), `utils/schedule.ts` (créneaux à l'heure de Lyon).
+- Visuels = SVG générés : `burger/BurgerLayer.tsx` (une couche par ingrédient, `LAYER_META` = hauteur/chevauchement), `burger/BurgerStack.tsx` (mode `live` = chute/sortie animées, `onLayerClick` pour retirer).
+- Le burger se redimensionne via container queries (`cqh/cqw` + ratio calculé depuis `LAYER_META`).
+- Mobile : la scène du burger est `sticky` ; le parent doit rester en `overflow-x-clip` (overflow-x-hidden casse sticky).
+- Ne pas mettre `aria-disabled` sur les boutons aliments : ils restent cliquables pour afficher le message de limite.
+- Tests : `e2e.test.cjs` (28, Playwright, `npm run test:e2e` sur la preview). Lighthouse mobile : Perf ~98, A11y 100.

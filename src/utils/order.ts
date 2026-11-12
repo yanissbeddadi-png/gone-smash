@@ -1,18 +1,12 @@
-import type { CartItem } from '../hooks/useCart';
-
 /**
  * Couche d'abstraction commande. Pour une exploitation réelle, implémenter
  * OrderProvider vers le système de caisse / commande choisi (API, webhook…)
  * et remplacer `orderProvider` ci-dessous. Aucun paiement n'est géré ici.
  */
 export interface OrderPayload {
-  mode: 'surplace' | 'emporter';
-  customer: { name: string; phone: string; email?: string };
+  customer: { name: string; phone: string };
   slot: string;
-  notes?: string;
-  items: Pick<CartItem, 'name' | 'qty' | 'unitPrice' | 'details'>[];
-  subtotal: number;
-  fees: { label: string; amount: number }[];
+  items: { name: string; qty: number; unitPrice: number }[];
   total: number;
 }
 
