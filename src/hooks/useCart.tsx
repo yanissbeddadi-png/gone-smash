@@ -7,8 +7,10 @@ export interface CartItem {
   id: string;
   /** Clé de regroupement : même produit + mêmes options = même ligne */
   key: string;
-  kind: 'product' | 'custom';
+  kind: 'product' | 'custom' | 'extra' | 'reward';
   productId?: string;
+  comboId?: string;
+  extraId?: string;
   name: string;
   unitPrice: number;
   qty: number;
@@ -20,6 +22,7 @@ type Action =
   | { type: 'add'; item: Omit<CartItem, 'id' | 'qty'>; qty?: number }
   | { type: 'qty'; id: string; qty: number }
   | { type: 'remove'; id: string }
+  | { type: 'replace'; id: string; item: Omit<CartItem, 'id' | 'qty'> }
   | { type: 'clear' };
 
 const STORAGE_KEY = 'gonesmash.cart.v1';
@@ -35,6 +38,14 @@ function reducer(state: CartItem[], a: Action): CartItem[] {
       return a.qty <= 0 ? state.filter((i) => i.id !== a.id) : state.map((i) => (i.id === a.id ? { ...i, qty: Math.min(20, a.qty) } : i));
     case 'remove':
       return state.filter((i) => i.id !== a.id);
+    case 'replace': {
+      const old = state.find((i) => i.id === a.id);
+      if (!old) return state;
+      const rest = state.filter((i) => i.id !== a.id);
+      const same = rest.find((i) => i.key === a.item.key);
+      if (same) return rest.map((i) => (i === same ? { ...i, qty: Math.min(20, i.qty + old.qty) } : i));
+      return state.map((i) => (i.id === a.id ? { ...a.item, id: old.id, qty: old.qty } : i));
+    }
     case 'clear':
       return [];
   }
@@ -62,6 +73,12 @@ interface CartCtx {
   add: (item: Omit<CartItem, 'id' | 'qty'>, qty?: number) => void;
   setQty: (id: string, qty: number) => void;
   remove: (id: string) => void;
+  /** Remplace une ligne (ex. passage en menu) en conservant sa quantité */
+  replace: (id: string, item: Omit<CartItem, 'id' | 'qty'>) => void;
+  /** Cadeau de l'offre démo, débloqué au-delà du seuil */
+  gift: string | null;
+  /** Montant restant avant le cadeau */
+  toGift: number;
   clear: () => void;
   /** Dernier ajout, pour le toast de confirmation */
   lastAdded: { name: string; at: number } | null;
@@ -87,8 +104,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const count = items.reduce((a, i) => a + i.qty, 0);
     const subtotal = round2(items.reduce((a, i) => a + i.unitPrice * i.qty, 0));
     const serviceFee = count ? brand.fees.service : 0;
+    const toGift = Math.max(0, round2(brand.promo.threshold - subtotal));
     return {
       items, count, subtotal, serviceFee, total: round2(subtotal + serviceFee), isOpen, lastAdded,
+      toGift, gift: count && toGift === 0 ? brand.promo.gift : null,
+      replace: (id, item) => dispatch({ type: 'replace', id, item }),
       open: () => setOpen(true),
       close: () => setOpen(false),
       add,

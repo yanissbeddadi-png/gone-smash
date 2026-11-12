@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { brand } from '../data/brand';
 import { districts } from '../data/lyon';
 import { LyonBadge } from './ui/Brand';
+import { OpenBadge } from './OpenBadge';
 import { Reveal, SplitTitle } from './ui/Reveal';
 
 function LyonMap({ active, onPick }: { active: string; onPick: (id: string) => void }) {
@@ -99,8 +100,9 @@ export function LyonSection() {
               <div className="flex gap-4">
                 <Clock className="mt-1 h-5 w-5 shrink-0 text-brick" aria-hidden />
                 <div className="w-full">
+                <OpenBadge light className="mb-2" />
                 <dl className="w-full text-sm">
-                  {brand.hours.map((h) => (
+                  {brand.hoursDisplay.map((h) => (
                     <div key={h.days} className="flex justify-between gap-3 border-b border-charcoal/10 py-1.5 last:border-0">
                       <dt className="font-semibold">{h.days}</dt>
                       <dd className="text-right text-charcoal/70">{h.time}</dd>

@@ -16,8 +16,7 @@ const ok = (name, cond, extra = '') => { results.push(`${cond ? 'PASS' : 'FAIL'}
   // 1. Ajout depuis la carte
   await p.locator('#carte article').first().getByRole('button', { name: /Ajouter au panier/ }).click();
   ok('Ajout produit carte → compteur 1', (await badge()) === '1');
-  await p.waitForTimeout(300);
-  ok('Toast de confirmation', await p.getByText('ajouté au panier').isVisible());
+  ok('Toast de confirmation', await p.getByText('ajouté au panier').waitFor({ timeout: 3000 }).then(() => true, () => false));
 
   // 2. Configurateur
   const total = async () => (await p.locator('#composer aside [aria-live=polite]').innerText()).trim();
@@ -110,7 +109,7 @@ const ok = (name, cond, extra = '') => { results.push(`${cond ? 'PASS' : 'FAIL'}
   await m.waitForTimeout(700);
   ok('Menu mobile ouvert', await m.getByRole('dialog', { name: 'Menu' }).isVisible());
   await m.getByRole('dialog', { name: 'Menu' }).getByRole('link', { name: /La carte/ }).click();
-  await m.waitForTimeout(1200);
+  await m.waitForFunction(() => Math.abs(document.getElementById('carte').getBoundingClientRect().top) < 120, null, { timeout: 4000 }).catch(() => {});
   ok('Lien menu mobile → section carte', Math.abs(await m.evaluate(() => document.getElementById('carte').getBoundingClientRect().top)) < 120);
   for (const w of [320, 375, 768, 1024, 1280, 1920]) {
     await m.setViewportSize({ width: w, height: 900 });

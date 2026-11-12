@@ -2,6 +2,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { combos, desserts, drinks, getCombo } from '../data/combos';
+import { useUI } from '../hooks/useUI';
+import { productItem } from '../utils/cartItems';
 import { getProduct, products } from '../data/products';
 import { useCart } from '../hooks/useCart';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -47,6 +49,8 @@ function Body({ initialProduct, initialCombo, showPicker, onDone }: { initialPro
   const [drink, setDrink] = useState(drinks[0]);
   const [dessert, setDessert] = useState(desserts[0]);
   const [qty, setQty] = useState(1);
+  const ui = useUI();
+  const visualRef = useRef<HTMLDivElement>(null);
   const p = getProduct(pid)!;
   const combo = getCombo(comboId);
   const unit = round2(p.price + (combo?.supplement ?? 0));
@@ -55,17 +59,9 @@ function Body({ initialProduct, initialCombo, showPicker, onDone }: { initialPro
   useEffect(() => setQty(1), [pid]);
 
   const onAdd = () => {
-    const details = [...p.ingredients];
-    if (combo) details.unshift(`${combo.name} : ${combo.includes.slice(1).filter((x) => x !== 'Dessert').join(', ')}`, `Boisson : ${drink}`, ...(needsDessert ? [`Dessert : ${dessert}`] : []));
-    add({
-      key: [p.id, combo?.id ?? '', combo ? drink : '', needsDessert ? dessert : ''].join('|'),
-      kind: 'product',
-      productId: p.id,
-      name: combo ? `${p.name} · ${combo.name}` : p.name,
-      unitPrice: unit,
-      details,
-      layers: p.layers,
-    }, qty);
+    add(productItem(p, combo?.id, drink, dessert), qty);
+    ui.flyToCart(visualRef.current, p.layers);
+    ui.play('pop');
     onDone();
   };
 
@@ -78,7 +74,7 @@ function Body({ initialProduct, initialCombo, showPicker, onDone }: { initialPro
       </button>
       <div className="relative flex items-center justify-center overflow-hidden bg-orange px-10 pb-6 pt-14 md:rounded-l-3xl md:py-14">
         <span aria-hidden className="display absolute -left-2 top-2 text-[5rem] leading-none text-charcoal/10 md:text-[7rem]">{euro(p.price).replace(/\s?€/, '')}€</span>
-        <motion.div key={p.id} initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="relative w-[min(60vw,300px)] md:w-[80%]">
+        <motion.div ref={visualRef} key={p.id} initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="relative w-[min(60vw,300px)] md:w-[80%]">
           <ProductVisual product={p} eager />
         </motion.div>
       </div>

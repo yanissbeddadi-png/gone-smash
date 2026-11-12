@@ -13,6 +13,23 @@ import { Manifesto } from './components/Manifesto';
 import { MenuSection } from './components/MenuSection';
 import { ProductModal } from './components/ProductModal';
 import { Toast } from './components/Toast';
+import { StickyCartBar } from './components/StickyCartBar';
+import { FlyToCart } from './components/FlyToCart';
+import { Intro } from './components/Intro';
+import { CustomCursor } from './components/CustomCursor';
+import { Curtain } from './components/Curtain';
+import { UIProvider } from './hooks/useUI';
+import { useProgressiveMount } from './hooks/useProgressiveMount';
+
+/** Sections sous la ligne de flottaison, montées progressivement (id = ancre de navigation) */
+const SECTIONS = [
+  { id: 'histoire', C: Manifesto },
+  { id: 'carte', C: MenuSection },
+  { id: 'composer', C: BurgerBuilder },
+  { id: 'menus', C: ComboSection },
+  { id: 'savoir-faire', C: Craft },
+  { id: 'lyon', C: LyonSection },
+];
 import { CartProvider, useCart } from './hooks/useCart';
 import { ProductModalProvider } from './hooks/useProductModal';
 
@@ -22,12 +39,14 @@ const isCheckout = () => window.location.hash.startsWith(CHECKOUT);
 function Shell() {
   const [checkout, setCheckout] = useState(isCheckout);
   const { count, open } = useCart();
+  const mount = useProgressiveMount(SECTIONS.length);
 
   useEffect(() => {
     const on = () => {
       const c = isCheckout();
       setCheckout(c);
       if (!c) {
+        mount.all();
         const id = window.location.hash.slice(1);
         // laisse la page d'accueil se monter avant de scroller vers l'ancre
         requestAnimationFrame(() => requestAnimationFrame(() => (id ? document.getElementById(id) : null)?.scrollIntoView()));
@@ -58,12 +77,7 @@ function Shell() {
           <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
             <main id="main">
               <Hero />
-              <Manifesto />
-              <MenuSection />
-              <BurgerBuilder />
-              <ComboSection />
-              <Craft />
-              <LyonSection />
+              {SECTIONS.map(({ id, C }, i) => (i < mount.count ? <C key={id} /> : <section key={id} id={id} className="min-h-screen bg-charcoal" aria-hidden />))}
             </main>
           </motion.div>
         )}
@@ -71,7 +85,12 @@ function Shell() {
       <Footer />
       <CartDrawer onCheckout={goCheckout} />
       <ProductModal />
-      <Toast />
+      <StickyCartBar hidden={checkout} />
+      <Toast lifted={count > 0 && !checkout} />
+      <FlyToCart />
+      <Curtain view={checkout ? 'checkout' : 'home'} />
+      <CustomCursor />
+      <Intro />
     </>
   );
 }
@@ -79,11 +98,13 @@ function Shell() {
 export default function App() {
   return (
     <MotionConfig reducedMotion="user">
-      <CartProvider>
-        <ProductModalProvider>
-          <Shell />
-        </ProductModalProvider>
-      </CartProvider>
+      <UIProvider>
+        <CartProvider>
+          <ProductModalProvider>
+            <Shell />
+          </ProductModalProvider>
+        </CartProvider>
+      </UIProvider>
     </MotionConfig>
   );
 }

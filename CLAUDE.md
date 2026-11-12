@@ -10,5 +10,12 @@
 - Grilles avec enfants `min-w-max` : utiliser `grid-cols-[minmax(0,1fr)]` sinon débordement mobile.
 - Titres XXL masqués (SplitTitle) : garder `pt/-mt 0.14em` sinon les accents (É, À) sont rognés.
 - `html { position: relative }` requis par useScroll (warning framer sinon).
-- Tests : `e2e.test.cjs` (Playwright, `npm run test:e2e` sur la preview) — 34 vérifications ; Lighthouse mobile : Perf ~88, A11y/BP/SEO 100.
+- Tests : `e2e.test.cjs` (34, V1) + `e2e.v2.test.cjs` (39, V2 : partage, story, créations, upsell, promo, fidélité, créneaux via `page.clock`, animations) — `npm run test:e2e` sur la preview. Lighthouse mobile : Perf ~97, A11y/BP/SEO 100.
+- Sections sous le hero montées progressivement (`useProgressiveMount`, App.tsx) : placeholders portant les ids d'ancre ; lien profond ou hashchange → tout monter (`mount.all`). C'est ce qui garde le TBT bas.
+- `SplitTitle` : le `whileInView` doit rester sur le titre, jamais sur la ligne masquée (rognée par overflow-hidden → invisible pour l'IntersectionObserver).
+- Partage : `?burger=<pain.viande.fromage.garnitures.sauce>~Nom` (encode/decode dans `data/ingredients.ts`), lu une seule fois au chargement du module (pas dans un initialiseur useState : rejoué en StrictMode).
+- Story PNG : `utils/storyImage.tsx`, chargé à la demande (react-dom/server en chunk séparé).
+- Horaires : `brand.schedule` structuré, évalué à l'heure de Lyon (`utils/schedule.ts`) ; `hoursDisplay` = texte affiché (à garder cohérent).
+- Panier : fabrique d'articles `utils/cartItems.ts` (clés stables) ; kinds product/custom/extra/reward ; cadeau promo et fidélité = DÉMO.
+- UI transverse : `useUI` (notify, flyToCart, sons WebAudio off par défaut). Intro desktop uniquement, 1×/session, ignorée sur lien profond ; curseur = anneau (curseur natif conservé).
 - Déploiement : GitHub Pages via workflow (branche gh-pages), base Vite `/gone-smash/` (env BASE_PATH pour changer).

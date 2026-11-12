@@ -1,4 +1,5 @@
-import { ArrowUpRight, Instagram } from 'lucide-react';
+import { ArrowUpRight, Instagram, Volume2, VolumeX } from 'lucide-react';
+import { useUI } from '../hooks/useUI';
 import { useState } from 'react';
 import { brand } from '../data/brand';
 import { nav } from '../data/nav';
@@ -6,6 +7,7 @@ import { Logo } from './ui/Brand';
 
 export function Footer() {
   const [legal, setLegal] = useState<null | 'mentions' | 'confidentialite'>(null);
+  const { sound, setSound } = useUI();
   return (
     <footer className="grain relative overflow-hidden bg-charcoal pt-20 text-offwhite" aria-labelledby="footer-title">
       <h2 id="footer-title" className="sr-only">Informations GONE SMASH</h2>
@@ -34,7 +36,7 @@ export function Footer() {
           <div className="lg:col-span-3">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange">Horaires (démo)</p>
             <dl className="mt-4 space-y-1 text-sm">
-              {brand.hours.map((h) => <div key={h.days} className="flex justify-between gap-3"><dt className="text-offwhite/75">{h.days}</dt><dd className="text-right text-offwhite/55">{h.time}</dd></div>)}
+              {brand.hoursDisplay.map((h) => <div key={h.days} className="flex justify-between gap-3"><dt className="text-offwhite/75">{h.days}</dt><dd className="text-right text-offwhite/55">{h.time}</dd></div>)}
             </dl>
           </div>
         </div>
@@ -49,7 +51,10 @@ export function Footer() {
 
         <div className="mt-16 flex flex-col justify-between gap-4 border-t border-white/10 py-6 text-sm text-offwhite/60 sm:flex-row">
           <p>© {new Date().getFullYear()} GONE SMASH — Marque et site de démonstration.</p>
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <button type="button" onClick={() => setSound(!sound)} aria-pressed={sound} className="inline-flex items-center gap-2 hover:text-offwhite">
+              {sound ? <Volume2 className="h-4 w-4" aria-hidden /> : <VolumeX className="h-4 w-4" aria-hidden />} Sons {sound ? 'activés' : 'désactivés'}
+            </button>
             <button type="button" onClick={() => setLegal('mentions')} className="hover:text-offwhite" aria-expanded={legal === 'mentions'}>Mentions légales (à compléter)</button>
             <button type="button" onClick={() => setLegal('confidentialite')} className="hover:text-offwhite" aria-expanded={legal === 'confidentialite'}>Confidentialité (à compléter)</button>
           </div>

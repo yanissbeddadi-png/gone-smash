@@ -1,9 +1,12 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Check, Pencil, RotateCcw, ShoppingBag } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
-import { breads, cheeses, meats, sauces, toppings } from '../data/ingredients';
+import { ArrowLeft, ArrowRight, Check, Dices, Flame, Heart, ImageDown, Link2, Loader2, Pencil, RotateCcw, ShoppingBag, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { breads, buildLayers, cheeses, meats, priceLines, sauces, toppings } from '../data/ingredients';
 import type { Layer, LayerKind } from '../data/types';
-import { useBurgerBuilder } from '../hooks/useBurgerBuilder';
+import { shareUrl, useBurgerBuilder } from '../hooks/useBurgerBuilder';
+import { MAX_CREATIONS, useCreations } from '../hooks/useCreations';
+import { useUI } from '../hooks/useUI';
+import { shareLink, shareOrDownload } from '../utils/share';
 import { useCart } from '../hooks/useCart';
 import { euro } from '../utils/format';
 import { LAYER_META } from './burger/BurgerLayer';
@@ -50,6 +53,50 @@ export function BurgerBuilder() {
   const [dir, setDir] = useState(1);
   const [name, setName] = useState('');
   const [added, setAdded] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [sharedBanner, setSharedBanner] = useState<string | null>(null);
+  const ui = useUI();
+  const creations = useCreations();
+  const stageRef = useRef<HTMLDivElement>(null);
+  const firstKey = useRef(b.key);
+
+  // burger reçu par lien de partage
+  useEffect(() => {
+    if (!b.shared) return;
+    setName(b.shared.name);
+    setSharedBanner(b.shared.name || 'Burger mystère');
+    setStep(5);
+  }, [b.shared]);
+
+  // petit son à chaque modification (si activé)
+  useEffect(() => {
+    if (b.key !== firstKey.current) ui.play('drop');
+  }, [b.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const label = name.trim() || 'Mon burger composé';
+  const onShare = async () => {
+    const r = await shareLink(shareUrl(b.state, name), `${label} — composé sur GONE SMASH`);
+    if (r === 'copied') ui.notify('Lien copié : envoie-le à tes potes');
+    else if (r === 'failed') ui.notify('Impossible de copier le lien sur ce navigateur');
+  };
+  const onStory = async () => {
+    setExporting(true);
+    try {
+      const { makeStoryImage } = await import('../utils/storyImage');
+      const blob = await makeStoryImage({ layers: b.layers, name, price: b.price.total, details: b.details, kcal: b.kcal });
+      await shareOrDownload(blob, `gone-smash-${(name.trim() || 'burger').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`, label);
+      ui.notify('Image prête : poste-la en story');
+    } catch {
+      ui.notify('L’export de l’image a échoué');
+    } finally {
+      setExporting(false);
+    }
+  };
+  const onSave = () => {
+    creations.save(name, b.state);
+    ui.notify(`« ${label} » ajouté à tes créations`);
+  };
+  const onSurprise = () => { b.randomize(); ui.play('sizzle'); };
 
   const go = (n: number) => { setDir(n > step ? 1 : -1); setStep(Math.max(0, Math.min(STEPS.length - 1, n))); };
 
@@ -58,6 +105,8 @@ export function BurgerBuilder() {
   const onAdd = () => {
     const n = name.trim().slice(0, 32);
     add({ key: `${b.key}|${n}`, kind: 'custom', name: n ? `« ${n} »` : 'Mon burger composé', unitPrice: b.price.total, details: b.details, layers: b.layers });
+    ui.flyToCart(stageRef.current, b.layers);
+    ui.play('pop');
     setAdded(true);
     window.setTimeout(() => setAdded(false), 2000);
   };
@@ -120,10 +169,20 @@ export function BurgerBuilder() {
           <p className="max-w-sm text-offwhite/70">Six étapes, des milliers de combinaisons. Ton burger se construit sous tes yeux, couche par couche, et le prix suit en temps réel.</p>
         </div>
 
+        <AnimatePresence>
+          {sharedBanner && (
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0 }} className="mb-6 flex items-center gap-4 rounded-2xl bg-orange px-5 py-4 text-charcoal" role="status">
+              <Link2 className="h-5 w-5 shrink-0" aria-hidden />
+              <p className="flex-1 text-sm sm:text-base"><strong>Burger partagé par un gone :</strong> « {sharedBanner} ». Modifie-le à ta sauce ou ajoute-le direct au panier.</p>
+              <button type="button" onClick={() => setSharedBanner(null)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-charcoal/10" aria-label="Masquer le message"><X className="h-4 w-4" aria-hidden /></button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-8">
           {/* SCÈNE — burger visuel (au centre sur desktop, en haut et collant sur mobile) */}
           <div className="sticky top-16 z-10 -mx-4 bg-charcoal-800/95 px-4 pb-3 pt-2 backdrop-blur sm:mx-0 sm:px-0 lg:static lg:order-2 lg:mx-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-0">
-            <div className="relative overflow-hidden rounded-3xl bg-charcoal ring-1 ring-white/5 lg:sticky lg:top-24">
+            <div ref={stageRef} className="relative overflow-hidden rounded-3xl bg-charcoal ring-1 ring-white/5 lg:sticky lg:top-24">
               <div aria-hidden className="absolute left-1/2 top-[54%] aspect-square w-[78%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange" />
               <div aria-hidden className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-black/30 to-transparent" />
               <div className="relative h-[32svh] min-h-[220px] [container-type:size] sm:h-[42svh] lg:h-[min(68vh,640px)]">
@@ -138,6 +197,9 @@ export function BurgerBuilder() {
               </div>
               <button type="button" onClick={() => { b.reset(); setName(''); go(0); }} className="absolute right-3 top-3 inline-flex h-10 items-center gap-2 rounded-full bg-charcoal/80 px-3 text-xs font-bold uppercase tracking-wider text-offwhite backdrop-blur transition hover:bg-brick" aria-label="Réinitialiser la composition">
                 <RotateCcw className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">Réinitialiser</span>
+              </button>
+              <button type="button" onClick={onSurprise} className="absolute bottom-3 left-3 inline-flex h-10 items-center gap-2 rounded-full bg-offwhite px-4 text-xs font-bold uppercase tracking-wider text-charcoal shadow-lg transition hover:bg-orange active:scale-95">
+                <Dices className="h-4 w-4" aria-hidden /> Surprends-moi
               </button>
               <div className="absolute bottom-3 right-3 rounded-2xl bg-offwhite px-4 py-2 text-charcoal lg:hidden" aria-hidden>
                 <motion.span key={b.price.total} initial={{ y: -8, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="display block text-2xl">{euro(b.price.total)}</motion.span>
@@ -197,8 +259,8 @@ export function BurgerBuilder() {
           <aside className="lg:order-3" aria-label="Récapitulatif et prix">
             <div className="rounded-3xl bg-offwhite p-6 text-charcoal lg:sticky lg:top-24">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-brick">Ton burger</p>
-              <ul className="mt-4 space-y-2 text-sm" aria-label="Détail du prix">
-                <AnimatePresence initial={false}>
+              <ul className="relative mt-4 space-y-2 text-sm" aria-label="Détail du prix">
+                <AnimatePresence initial={false} mode="popLayout">
                   {b.price.lines.map((l) => (
                     <motion.li key={l.label} layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex justify-between gap-4">
                       <span className="text-charcoal/75">{l.label}</span>
@@ -213,12 +275,52 @@ export function BurgerBuilder() {
                   {euro(b.price.total)}
                 </motion.span>
               </div>
+              <p className="mt-2 flex items-center justify-end gap-1.5 text-xs text-charcoal/70"><Flame className="h-3.5 w-3.5 text-brick" aria-hidden /> ≈ {b.kcal.toLocaleString('fr-FR')} kcal <span className="opacity-70">(estimation indicative)</span></p>
               <div className="mt-5 hidden lg:block">{addBtn()}</div>
               <div className="mt-3 lg:hidden">{step < STEPS.length - 1 && addBtn('!h-12 !text-[0.72rem]')}</div>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {([
+                  ['Partager', Link2, onShare, false],
+                  [exporting ? 'Création…' : 'Story', exporting ? Loader2 : ImageDown, onStory, exporting],
+                  ['Sauver', Heart, onSave, false],
+                ] as const).map(([t, Icon, fn, busy]) => (
+                  <button key={t} type="button" onClick={fn} disabled={busy} className="flex h-16 flex-col items-center justify-center gap-1 rounded-2xl bg-charcoal/5 text-[0.7rem] font-bold uppercase tracking-wider transition hover:bg-charcoal hover:text-offwhite active:scale-95 disabled:opacity-60">
+                    <Icon className={`h-5 w-5 ${busy ? 'animate-spin' : ''}`} aria-hidden /> {t}
+                  </button>
+                ))}
+              </div>
               {added && <button type="button" onClick={open} className="mt-3 w-full text-center text-sm font-semibold text-brick underline underline-offset-4">Voir le panier</button>}
             </div>
           </aside>
         </div>
+
+        {creations.list.length > 0 && (
+          <div className="mt-16">
+            <div className="mb-5 flex items-baseline justify-between gap-4">
+              <h3 className="display text-4xl">Mes créations</h3>
+              <p className="text-sm text-offwhite/60">{creations.list.length}/{MAX_CREATIONS} · enregistrées sur cet appareil</p>
+            </div>
+            <ul className="no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3 xl:grid-cols-6">
+              <AnimatePresence initial={false}>
+                {creations.list.map((c) => {
+                  const layers = buildLayers(c.state);
+                  const total = priceLines(c.state).total;
+                  return (
+                    <motion.li key={c.id} layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="w-[62vw] shrink-0 snap-center rounded-3xl bg-white/[0.04] p-4 ring-1 ring-white/10 sm:w-auto">
+                      <div className="mx-auto w-[70%]"><BurgerStack layers={layers} shadow={false} seed={7} /></div>
+                      <p className="mt-3 truncate font-semibold">{c.name}</p>
+                      <p className="display text-2xl text-orange">{euro(total)}</p>
+                      <div className="mt-3 flex gap-2">
+                        <button type="button" onClick={() => { b.replace(c.state); setName(c.name); go(5); }} className="h-10 flex-1 rounded-full bg-offwhite text-xs font-bold uppercase tracking-wider text-charcoal hover:bg-orange">Charger<span className="sr-only"> {c.name}</span></button>
+                        <button type="button" onClick={() => creations.remove(c.id)} className="grid h-10 w-10 place-items-center rounded-full bg-white/10 hover:bg-brick" aria-label={`Supprimer la création ${c.name}`}><Trash2 className="h-4 w-4" aria-hidden /></button>
+                      </div>
+                    </motion.li>
+                  );
+                })}
+              </AnimatePresence>
+            </ul>
+          </div>
+        )}
       </div>
     </section>
   );

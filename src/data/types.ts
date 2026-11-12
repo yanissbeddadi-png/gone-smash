@@ -41,5 +41,7 @@ export interface Option {
   id: string;
   label: string;
   price: number;
+  /** Estimation indicative */
+  kcal: number;
   note?: string;
 }

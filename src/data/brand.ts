@@ -14,7 +14,20 @@ export const brand = {
   phone: '04 00 00 00 00',
   email: 'bonjour@gonesmash.example',
   instagram: { handle: '@gonesmash.demo', url: 'https://www.instagram.com/' },
-  hours: [
+  /**
+   * Horaires structurés (0 = dimanche … 6 = samedi), plages HH:MM. DÉMO.
+   * L'affichage texte (`hoursDisplay`) et les créneaux de retrait en sont dérivés.
+   */
+  schedule: {
+    0: [{ open: '12:00', close: '22:00' }],
+    1: [],
+    2: [{ open: '11:30', close: '14:30' }, { open: '18:30', close: '22:30' }],
+    3: [{ open: '11:30', close: '14:30' }, { open: '18:30', close: '22:30' }],
+    4: [{ open: '11:30', close: '14:30' }, { open: '18:30', close: '22:30' }],
+    5: [{ open: '11:30', close: '15:00' }, { open: '18:30', close: '23:30' }],
+    6: [{ open: '11:30', close: '15:00' }, { open: '18:30', close: '23:30' }],
+  } as Record<number, { open: string; close: string }[]>,
+  hoursDisplay: [
     { days: 'Lundi', time: 'Fermé' },
     { days: 'Mardi – Jeudi', time: '11h30 – 14h30 · 18h30 – 22h30' },
     { days: 'Vendredi – Samedi', time: '11h30 – 15h00 · 18h30 – 23h30' },
@@ -26,5 +39,10 @@ export const brand = {
     /** Emballage à emporter (démo) */
     takeaway: 0.4,
   },
-  pickupSlots: ['Dès que possible', '12h00', '12h30', '13h00', '19h00', '19h30', '20h00', '20h30', '21h00'],
+  /** Délai minimum de préparation avant le premier créneau (minutes) */
+  prepMinutes: 20,
+  /** Offre de démonstration : cadeau dès un montant de panier */
+  promo: { threshold: 25, gift: 'Cookie praline rose', isDemo: true },
+  /** Fidélité de démonstration : 1 tampon par burger */
+  loyalty: { stampsForReward: 10 },
 } as const;

@@ -1,10 +1,14 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, Loader2, ShoppingBag, Store } from 'lucide-react';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { brand } from '../data/brand';
 import { useCart } from '../hooks/useCart';
 import { euro, round2 } from '../utils/format';
 import { orderProvider, type OrderPayload, type OrderResult } from '../utils/order';
+import { burgerCount } from '../utils/cartItems';
+import { openStatus, pickupSlots } from '../utils/schedule';
+import { useLoyalty } from '../hooks/useLoyalty';
+import { LoyaltyCard } from './LoyaltyCard';
 import { CartLine } from './CartLine';
 import { CartTotals, EmptyCart } from './CartDrawer';
 import { BurgerStack } from './burger/BurgerStack';
@@ -29,7 +33,12 @@ export function Checkout() {
   const cart = useCart();
   const [step, setStep] = useState(0);
   const [mode, setMode] = useState<Mode>('emporter');
-  const [slot, setSlot] = useState<string>(brand.pickupSlots[0]);
+  const slots = useMemo(() => pickupSlots(), []);
+  const status = useMemo(() => openStatus(), []);
+  const [slot, setSlot] = useState<string>(slots[0]?.value ?? '');
+  const slotLabel = slots.find((x) => x.value === slot)?.label ?? '';
+  const loyalty = useLoyalty();
+  const [earned, setEarned] = useState(0);
   const [info, setInfo] = useState<Info>({ name: '', phone: '', email: '', notes: '' });
   const [touched, setTouched] = useState(false);
   const [sending, setSending] = useState(false);
@@ -55,15 +64,19 @@ export function Checkout() {
   const submit = async () => {
     setSending(true);
     const payload: OrderPayload = {
-      mode, slot, notes: info.notes.trim() || undefined,
+      mode, slot: slotLabel, notes: info.notes.trim() || undefined,
       customer: { name: info.name.trim(), phone: info.phone.trim(), email: info.email.trim() || undefined },
-      items: cart.items.map(({ name, qty, unitPrice, details }) => ({ name, qty, unitPrice, details })),
+      items: [...cart.items.map(({ name, qty, unitPrice, details }) => ({ name, qty, unitPrice, details })), ...(cart.gift ? [{ name: `${cart.gift} (offre démo)`, qty: 1, unitPrice: 0, details: [] }] : [])],
       subtotal: cart.subtotal,
       fees: [{ label: 'Frais de service', amount: cart.serviceFee }, ...extra],
       total,
     };
     const r = await orderProvider.submit(payload);
     setResult({ ...r, name: payload.customer.name, total });
+    const n = burgerCount(cart.items);
+    if (cart.items.some((i) => i.kind === 'reward')) loyalty.consumeReward();
+    loyalty.addStamps(n);
+    setEarned(n);
     cart.clear();
     setSending(false);
     setStep(4);
@@ -137,9 +150,12 @@ export function Checkout() {
                     <label className="mt-6 block max-w-sm">
                       <span className="text-sm font-semibold">Créneau souhaité</span>
                       <select value={slot} onChange={(e) => setSlot(e.target.value)} className="mt-1 h-12 w-full rounded-xl border-2 border-charcoal/15 bg-white px-3">
-                        {brand.pickupSlots.map((s) => <option key={s}>{s}</option>)}
+                        {slots.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                       </select>
                     </label>
+                    <p className={`mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${status.open ? 'bg-[#e3efd0] text-[#2f5a12]' : 'bg-cream text-brick'}`}>
+                      <span className={`h-2 w-2 rounded-full ${status.open ? 'bg-[#4a8a1f]' : 'bg-brick'}`} aria-hidden />{status.label} <span className="font-normal">(horaires démo, heure de Lyon)</span>
+                    </p>
                     <p className="mt-2 text-sm text-charcoal/75">Lieu : {brand.address.street}, {brand.address.zip} {brand.address.city} (adresse fictive).</p>
                     <Nav onPrev={prev} onNext={next} />
                   </>
@@ -161,7 +177,7 @@ export function Checkout() {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="rounded-3xl bg-white p-5 ring-1 ring-charcoal/10">
                         <p className="text-xs font-bold uppercase tracking-[0.14em] text-brick">Retrait</p>
-                        <p className="mt-2 font-semibold">{mode === 'surplace' ? 'Sur place' : 'À emporter'} · {slot}</p>
+                        <p className="mt-2 font-semibold">{mode === 'surplace' ? 'Sur place' : 'À emporter'} · {slotLabel}</p>
                         <button type="button" onClick={() => setStep(1)} className="mt-2 text-sm underline underline-offset-4">Modifier</button>
                       </div>
                       <div className="rounded-3xl bg-white p-5 ring-1 ring-charcoal/10">
@@ -191,6 +207,12 @@ export function Checkout() {
                     <p className="display text-center text-5xl sm:text-6xl">Merci, <span className="text-orange">{result.name}</span> !</p>
                     <p className="mx-auto mt-4 max-w-md text-center text-offwhite/75">Commande <strong>simulée</strong> · référence <span className="font-mono text-orange">{result.reference}</span> · {euro(result.total)}</p>
                     <p className="mx-auto mt-4 max-w-md rounded-2xl bg-white/5 p-4 text-center text-sm text-offwhite/70">Ceci est une démonstration : aucune commande n’a été transmise au restaurant et aucun paiement n’a été effectué.</p>
+                    {earned > 0 && (
+                      <div className="mx-auto mt-6 max-w-md">
+                        <p className="mb-2 text-center text-sm font-semibold text-orange">+{earned} tampon{earned > 1 ? 's' : ''} sur ta carte fidélité</p>
+                        <LoyaltyCard highlight={earned} />
+                      </div>
+                    )}
                     <div className="mt-8 flex justify-center"><LinkButton href="#top">Retour à l’accueil</LinkButton></div>
                   </div>
                 ) : null}

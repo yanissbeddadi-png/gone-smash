@@ -1,9 +1,11 @@
 import { motion } from 'framer-motion';
 import { Check, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Product } from '../data/types';
 import { useCart } from '../hooks/useCart';
 import { useProductModal } from '../hooks/useProductModal';
+import { useUI } from '../hooks/useUI';
+import { productItem } from '../utils/cartItems';
 import { euro } from '../utils/format';
 import { ProductVisual } from './burger/ProductVisual';
 
@@ -17,10 +19,14 @@ export function ProductCard({ product, index }: { product: Product; index: numbe
   const { add } = useCart();
   const { openProduct } = useProductModal();
   const [added, setAdded] = useState(false);
+  const ui = useUI();
+  const visualRef = useRef<HTMLSpanElement>(null);
   const t = theme[product.accent];
 
   const onAdd = () => {
-    add({ key: product.id, kind: 'product', productId: product.id, name: product.name, unitPrice: product.price, details: product.ingredients, layers: product.layers });
+    add(productItem(product));
+    ui.flyToCart(visualRef.current, product.layers);
+    ui.play('pop');
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1400);
   };
@@ -41,7 +47,7 @@ export function ProductCard({ product, index }: { product: Product; index: numbe
 
       <button type="button" onClick={() => openProduct(product.id)} className="relative mx-auto my-4 block w-[82%] rounded-2xl" aria-label={`Voir les détails du ${product.name}`}>
         <span aria-hidden className={`absolute left-1/2 top-1/2 aspect-square w-[92%] -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform duration-500 group-hover:scale-110 ${t.disc}`} />
-        <span className="relative block transition-transform duration-500 ease-out group-hover:-translate-y-2 group-hover:-rotate-3">
+        <span ref={visualRef} data-cursor="Voir" className="relative block transition-transform duration-500 ease-out group-hover:-translate-y-2 group-hover:-rotate-3">
           <ProductVisual product={product} />
         </span>
       </button>

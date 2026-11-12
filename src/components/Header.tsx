@@ -5,6 +5,7 @@ import { nav } from '../data/nav';
 import { useCart } from '../hooks/useCart';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { Logo } from './ui/Brand';
+import { OpenBadge } from './OpenBadge';
 import { btn } from './ui/Button';
 
 export function Header({ onOrder, solid = false }: { onOrder: () => void; solid?: boolean }) {
@@ -44,8 +45,9 @@ export function Header({ onOrder, solid = false }: { onOrder: () => void; solid?
             </ul>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
+            <OpenBadge className="hidden xl:inline-flex" />
             <button type="button" onClick={onOrder} className={btn('primary', 'sm', 'hidden sm:inline-flex')}>Commander</button>
-            <button type="button" onClick={open} className="relative grid h-11 w-11 place-items-center rounded-full bg-white/10 text-offwhite transition hover:bg-white/20" aria-label={`Ouvrir le panier, ${count} article${count > 1 ? 's' : ''}`}>
+            <button type="button" data-cart-target onClick={open} className="relative grid h-11 w-11 place-items-center rounded-full bg-white/10 text-offwhite transition hover:bg-white/20" aria-label={`Ouvrir le panier, ${count} article${count > 1 ? 's' : ''}`}>
               <ShoppingBag className="h-5 w-5" aria-hidden />
               <AnimatePresence>
                 {count > 0 && (
@@ -102,6 +104,7 @@ export function Header({ onOrder, solid = false }: { onOrder: () => void; solid?
               </ul>
             </nav>
             <div className="container-x pb-8">
+              <OpenBadge className="mb-4" />
               <button type="button" onClick={() => { close(); onOrder(); }} className={btn('primary', 'lg', 'w-full')}>Commander</button>
             </div>
           </motion.div>
