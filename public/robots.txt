@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Mettre à jour si un domaine personnalisé est utilisé
+Sitemap: https://yanissbeddadi-png.github.io/gone-smash/sitemap.xml
