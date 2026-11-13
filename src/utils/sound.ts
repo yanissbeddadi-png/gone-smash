@@ -1,5 +1,5 @@
 /** Micro-sons synthétisés (WebAudio, aucun fichier). Désactivés par défaut, activables dans le footer. */
-export type SoundName = 'pop' | 'sizzle' | 'drop';
+export type SoundName = 'pop' | 'sizzle' | 'drop' | 'tick';
 let ctx: AudioContext | null = null;
 
 export function playSound(name: SoundName) {
@@ -23,6 +23,14 @@ export function playSound(name: SoundName) {
       return;
     }
     const o = ctx.createOscillator();
+    if (name === 'tick') {
+      // cliquet de roulette
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(1400, t);
+      g.gain.setValueAtTime(0.06, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+      o.connect(g); o.start(t); o.stop(t + 0.05);
+      return;
+    }
     o.type = 'sine';
     o.frequency.setValueAtTime(name === 'pop' ? 520 : 300, t);
     o.frequency.exponentialRampToValueAtTime(name === 'pop' ? 880 : 140, t + 0.12);

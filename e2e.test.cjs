@@ -1,8 +1,9 @@
-// Tests Playwright de la page de commande simple. Usage : node e2e.test.cjs <url>
+// Tests Playwright de la page de commande à roulette. Usage : node e2e.test.cjs <url>
 const { chromium } = require('playwright');
 const URL = process.argv[2] || 'http://localhost:4173/gone-smash/';
 const results = [];
 const ok = (n, c, x = '') => results.push(`${c ? 'PASS' : 'FAIL'}  ${n} ${x}`);
+const LAYER = '[role=button][aria-label^="Changer"]';
 (async () => {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
@@ -14,44 +15,51 @@ const ok = (n, c, x = '') => results.push(`${c ? 'PASS' : 'FAIL'}  ${n} ${x}`);
   await p.goto(URL, { waitUntil: 'networkidle' });
   await p.evaluate(() => localStorage.clear()); await p.reload({ waitUntil: 'networkidle' });
   const total = async () => (await p.locator('.display.tabular-nums').innerText()).trim();
-  const layers = () => p.locator('[role=button][aria-label^="Retirer"]').count();
-  // attend que le nombre de couches se stabilise (sorties animées)
-  const is = (n) => p.waitForFunction((k) => document.querySelectorAll('[role=button][aria-label^="Retirer"]').length === k, n, { timeout: 3000 }).then(() => true, () => false);
-  const add = (name) => p.getByRole('button', { name: new RegExp('^Ajouter ' + name) }).first().click();
+  const is = (n) => p.waitForFunction(([s, k]) => document.querySelectorAll(s).length === k, [LAYER, n], { timeout: 3000 }).then(() => true, () => false);
+  const at = async (label) => (await p.getByRole('group', { name: new RegExp(`: ${label}$`) }).count()) === 1;
+  const pick = (name) => p.getByRole('group').getByRole('button', { name: new RegExp('^' + name) }).click();
 
-  ok('Départ : pain seul à 4,90 €', (await total()).startsWith('4,90') && (await layers()) === 0);
-  ok('Commander désactivé si burger vide', await p.getByRole('button', { name: 'Commander' }).isDisabled());
-  await add('Steak smashé'); await add('Cheddar');
-  ok('Clic → couches ajoutées', (await layers()) === 2);
-  ok('Prix mis à jour (4,90 + 2,50 + 1,00)', (await total()).startsWith('8,40'), await total());
-  await add('Steak smashé'); await add('Steak smashé'); await add('Steak smashé');
-  ok('3 max par aliment (3 steaks + cheddar)', await is(4));
-  ok('Message limite', await p.getByText('3 steak smashé maximum').isVisible());
-  await p.locator('[role=button][aria-label="Retirer Cheddar du burger"]').click();
-  ok('Clic sur une couche → retirée', (await is(3)) && (await total()).startsWith('12,40'), await total());
-  await p.getByRole('button', { name: 'Retirer un Steak smashé' }).click();
-  ok('Bouton − retire un aliment', await is(2));
-  await p.getByRole('button', { name: 'Annuler' }).click();
-  ok('Annuler retire la dernière couche', await is(1));
-  await add('Bacon'); await add('Pickles');
+  ok('Départ : pain seul à 4,90 €, étape Viande', (await total()).startsWith('4,90') && await at('Viande') && (await is(0)));
+  ok('Commander désactivé sans viande', await p.getByRole('button', { name: 'Commander', exact: true }).isDisabled());
+  ok('Étapes suivantes verrouillées', await p.getByRole('button', { name: /^Étape 2 : Fromage/ }).isDisabled());
+  ok('Pas de « Sans » pour la viande', (await p.getByRole('group').getByRole('button', { name: /^Sans/ }).count()) === 0);
+  await pick('Double smash');
+  ok('Double smash → 2 steaks + roulette sur Fromage', (await is(2)) && await at('Fromage'));
+  ok('Prix 4,90 + 5,00', (await total()).startsWith('9,90'), await total());
+  await pick('Sans fromage');
+  ok('« Sans » avance sans rien poser', (await is(2)) && await at('Garniture'));
+  await pick('Bacon'); await pick('Sauce BBQ');
+  ok('Garniture + sauce posées → Frites', (await is(4)) && await at('Frites'));
+  await pick('Frites cheddar-bacon');
+  ok('Frites posées à côté du burger', await p.getByRole('button', { name: 'Changer : Frites cheddar-bacon' }).isVisible() && await at('Boisson'));
+  await pick('Cola'); await pick('Brownie');
+  ok('Fin du parcours : « C’est prêt »', await p.getByText('C’est prêt !').isVisible());
+  ok('Total 21,30 €', (await total()).startsWith('21,30'), await total());
+  await p.locator(`${LAYER}[aria-label="Changer : garniture"]`).click();
+  ok('Clic couche → retour à son étape', await at('Garniture'));
+  ok('Choix actuel coché', (await p.getByRole('group').getByRole('button', { name: /^Bacon/ }).getAttribute('aria-pressed')) === 'true');
+  await pick('Tomate');
+  ok('Changer un choix le remplace', (await is(4)) && (await total()).startsWith('20,30') && await at('Sauce'), await total());
+  await p.getByRole('button', { name: /^Étape 2 : Fromage/ }).click();
+  await pick('Raclette');
+  ok('Retour par l’étape + ajout raclette', (await is(5)) && (await total()).startsWith('21,80'), await total());
+  await p.getByRole('button', { name: 'Changer : Frites cheddar-bacon' }).click();
+  await pick('Sans frites');
+  ok('Retirer les frites', (await p.getByRole('button', { name: /^Changer : Frites/ }).waitFor({ state: 'detached', timeout: 3000 }).then(() => true, () => false)) && (await total()).startsWith('17,90'), await total());
   await p.reload({ waitUntil: 'networkidle' });
-  ok('Burger conservé après rechargement', await is(3));
-  await p.getByRole('button', { name: 'Vider' }).click();
-  ok('Vider', await is(0));
+  ok('Commande conservée après rechargement', (await is(5)) && (await total()).startsWith('17,90'));
 
-  // limite totale
-  for (const n of ['Steak smashé', 'Cheddar', 'Raclette', 'Bacon']) for (let i = 0; i < 3; i++) await add(n);
-  await add('Pickles');
-  ok('12 couches maximum', (await is(12)) && await p.getByText(/Burger plein/).isVisible());
-  await p.getByRole('button', { name: 'Vider' }).click();
-  await is(0);
+  // clavier : Entrée choisit et le focus suit la roulette
+  await p.getByRole('button', { name: /^Étape 2 : Fromage/ }).click();
+  await p.getByRole('group').getByRole('button', { name: /^Cheddar/ }).focus();
+  await p.keyboard.press('Enter');
+  ok('Clavier : focus sur l’étape suivante', ((await p.evaluate(() => document.activeElement?.getAttribute('aria-label'))) ?? '').startsWith('Salade'));
 
   // commande
-  await add('Steak smashé'); await add('Cheddar'); await add('Pickles');
-  await p.getByRole('button', { name: 'Commander' }).click();
+  await p.getByRole('button', { name: 'Commander', exact: true }).last().click();
   const d = p.getByRole('dialog');
   ok('Panneau commande ouvert', await d.isVisible());
-  ok('Récap : 1 × Steak smashé', await d.getByText('1 × Steak smashé').isVisible());
+  ok('Récap : Double smash + Cola', await d.getByText('Double smash').isVisible() && await d.getByText('Cola').isVisible());
   ok('Créneau « Dès que possible » quand ouvert', (await d.locator('select option').first().innerText()).startsWith('Dès que possible'));
   await d.getByRole('button', { name: /^Commander ·/ }).click();
   ok('Validation : erreurs affichées', await d.getByText('Indique ton prénom.').isVisible() && await d.getByText(/Numéro français/).isVisible());
@@ -59,32 +67,38 @@ const ok = (n, c, x = '') => results.push(`${c ? 'PASS' : 'FAIL'}  ${n} ${x}`);
   await d.getByRole('button', { name: /^Commander ·/ }).click();
   await d.getByText('Merci Camille !').waitFor({ timeout: 5000 });
   ok('Confirmation simulée', await d.getByText(/rien n’est envoyé au restaurant, rien n’est payé/).isVisible());
-  await d.getByRole('button', { name: 'Faire un autre burger' }).click();
-  ok('Burger vidé après commande', await is(0));
-  await add('Bacon');
-  await p.getByRole('button', { name: 'Commander' }).click();
+  await d.getByRole('button', { name: 'Faire une autre commande' }).click();
+  ok('Tout remis à zéro après commande', (await is(0)) && await at('Viande') && (await total()).startsWith('4,90'));
+  await pick('Simple smash');
+  await p.getByRole('button', { name: 'Commander', exact: true }).last().click();
   await p.keyboard.press('Escape');
   await p.waitForTimeout(400);
   ok('Échap ferme le panneau', (await p.getByRole('dialog').count()) === 0);
+  await p.getByRole('button', { name: 'Recommencer' }).click();
+  ok('Bouton Recommencer', (await is(0)) && await at('Viande'));
 
-  // mobile : burger toujours visible en scrollant
+  // mobile : roulette en bas, tout visible
   const m = await ctx.newPage(); await m.setViewportSize({ width: 375, height: 700 });
   await m.goto(URL, { waitUntil: 'networkidle' });
-  await m.getByRole('button', { name: /^Ajouter Sauce maison/ }).click();
-  await m.waitForTimeout(300);
-  ok('Mobile : burger collant visible', Math.abs(await m.evaluate(() => document.querySelector('section[aria-label="Ton burger"]').getBoundingClientRect().top)) < 2);
+  await m.getByRole('group').getByRole('button', { name: /^Triple smash/ }).click();
+  const box = async (sel) => m.locator(sel).first().boundingBox();
+  const g = await m.getByRole('group').getByRole('button').first().boundingBox();
+  const bar = await box('.fixed.inset-x-0.bottom-0');
+  ok('Mobile : choix visibles au-dessus de la barre', g && bar && g.y + g.height <= bar.y + 1 && g.x >= 0, JSON.stringify(g));
   for (const w of [320, 375, 768, 1024, 1440, 1920]) {
     await m.setViewportSize({ width: w, height: 900 }); await m.waitForTimeout(150);
     ok(`Pas de débordement @${w}px`, (await m.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 0);
   }
 
-  // animations actives : pas d'erreur
+  // animations actives : parcours complet sans erreur
   const q = await (await b.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
   const e2 = []; q.on('console', (x) => { if (['error', 'warning'].includes(x.type())) e2.push(x.text()); }); q.on('pageerror', (e) => e2.push(e.message));
   await q.goto(URL, { waitUntil: 'networkidle' });
-  for (const n of ['Steak smashé', 'Cheddar', 'Tomate', 'Salade']) await q.getByRole('button', { name: new RegExp('^Ajouter ' + n) }).click();
-  await q.waitForTimeout(1200);
-  ok('Animations : couches posées', (await q.locator('[role=button][aria-label^="Retirer"]').count()) === 4);
+  for (const n of ['Simple smash', 'Cheddar', 'Salade', 'Sauce maison', 'Frites classiques', 'Limonade', 'Cookie']) {
+    await q.getByRole('group').getByRole('button', { name: new RegExp('^' + n) }).click();
+    await q.waitForTimeout(700);
+  }
+  ok('Animations : parcours complet', (await q.locator(LAYER).count()) === 4 && await q.getByText('C’est prêt !').isVisible());
   ok('Console propre', errs.length === 0 && e2.length === 0, [...errs, ...e2].slice(0, 2).join(' | '));
   console.log(results.join('\n'));
   await b.close();

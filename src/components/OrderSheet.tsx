@@ -3,15 +3,15 @@ import { Check, Loader2, X } from 'lucide-react';
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { BASE_PRICE } from '../data/simple';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import type { useStack } from '../hooks/useStack';
-import { euro, round2 } from '../utils/format';
+import type { Order } from '../hooks/useOrder';
+import { euro } from '../utils/format';
 import { orderProvider } from '../utils/order';
 import { pickupSlots } from '../utils/schedule';
 import { Button } from './ui/Button';
 
 const PHONE = /^(?:\+33\s?|0)[1-9](?:[\s.-]?\d{2}){4}$/;
 
-export function OrderSheet({ open, onClose, stack }: { open: boolean; onClose: () => void; stack: ReturnType<typeof useStack> }) {
+export function OrderSheet({ open, onClose, order }: { open: boolean; onClose: () => void; order: Order }) {
   const ref = useRef<HTMLDivElement>(null);
   const slots = useMemo(() => pickupSlots(), [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const [slot, setSlot] = useState('');
@@ -22,7 +22,7 @@ export function OrderSheet({ open, onClose, stack }: { open: boolean; onClose: (
   const [done, setDone] = useState<{ ref: string; name: string; total: number } | null>(null);
 
   const close = () => {
-    if (done) { stack.clear(); setDone(null); setTouched(false); }
+    if (done) { order.reset(); setDone(null); setTouched(false); }
     onClose();
   };
   useFocusTrap(ref, open, close);
@@ -39,11 +39,11 @@ export function OrderSheet({ open, onClose, stack }: { open: boolean; onClose: (
     const r = await orderProvider.submit({
       customer: { name: name.trim(), phone: phone.trim() },
       slot: slots.find((s) => s.value === slotValue)?.label ?? '',
-      items: [{ name: 'Pain brioché', qty: 1, unitPrice: BASE_PRICE }, ...stack.summary.map(({ item, n }) => ({ name: item.label, qty: n, unitPrice: item.price }))],
-      total: stack.total,
+      items: [{ name: 'Pain brioché', qty: 1, unitPrice: BASE_PRICE }, ...order.summary.map((l) => ({ name: `${l.step} : ${l.label}`, qty: 1, unitPrice: l.price }))],
+      total: order.total,
     });
     setSending(false);
-    setDone({ ref: r.reference, name: name.trim(), total: stack.total });
+    setDone({ ref: r.reference, name: name.trim(), total: order.total });
   };
 
   const input = (err: string) => `mt-1 h-12 w-full rounded-xl border-2 bg-white px-4 text-charcoal focus:outline-none ${touched && err ? 'border-brick' : 'border-charcoal/15 focus:border-charcoal'}`;
@@ -67,20 +67,20 @@ export function OrderSheet({ open, onClose, stack }: { open: boolean; onClose: (
                 <h2 id="order-title" className="display mt-5 text-5xl">Merci {done.name} !</h2>
                 <p className="mt-3 text-charcoal/75">Commande <strong>simulée</strong> · <span className="font-mono text-brick">{done.ref}</span> · {euro(done.total)}</p>
                 <p className="mt-4 rounded-2xl bg-cream p-4 text-sm text-charcoal/75">Démo : rien n’est envoyé au restaurant, rien n’est payé.</p>
-                <Button size="lg" className="mt-6 w-full" onClick={close}>Faire un autre burger</Button>
+                <Button size="lg" className="mt-6 w-full" onClick={close}>Faire une autre commande</Button>
               </div>
             ) : (
               <form onSubmit={submit} noValidate>
                 <h2 id="order-title" className="display text-4xl">Ta commande</h2>
                 <ul className="mt-4 space-y-1 text-sm">
                   <li className="flex justify-between"><span>Pain brioché</span><span className="tabular-nums">{euro(BASE_PRICE)}</span></li>
-                  {stack.summary.map(({ item, n }) => (
-                    <li key={item.id} className="flex justify-between"><span>{n} × {item.label}</span><span className="tabular-nums">{euro(round2(n * item.price))}</span></li>
+                  {order.summary.map((l) => (
+                    <li key={l.step} className="flex justify-between"><span><span className="text-charcoal/60">{l.step} · </span>{l.label}</span><span className="tabular-nums">{euro(l.price)}</span></li>
                   ))}
                 </ul>
                 <div className="mt-3 flex items-end justify-between border-t-2 border-dashed border-charcoal/15 pt-3">
                   <span className="text-sm font-bold uppercase tracking-wider">Total</span>
-                  <span className="display text-4xl">{euro(stack.total)}</span>
+                  <span className="display text-4xl">{euro(order.total)}</span>
                 </div>
                 <div className="mt-5 space-y-3">
                   <label className="block text-sm font-semibold">Prénom
@@ -98,7 +98,7 @@ export function OrderSheet({ open, onClose, stack }: { open: boolean; onClose: (
                   </label>
                 </div>
                 <Button type="submit" size="lg" className="mt-6 w-full" disabled={sending}>
-                  {sending ? <><Loader2 className="h-5 w-5 animate-spin" aria-hidden /> Envoi…</> : <>Commander · {euro(stack.total)}</>}
+                  {sending ? <><Loader2 className="h-5 w-5 animate-spin" aria-hidden /> Envoi…</> : <>Commander · {euro(order.total)}</>}
                 </Button>
                 <p className="mt-3 text-center text-xs text-charcoal/70">Démo : aucune vraie commande, aucun paiement.</p>
               </form>
